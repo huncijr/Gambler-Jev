@@ -48,6 +48,9 @@ def jev_advice():
     data = request.get_json(silent=True) or {}
     player = data.get("player", [])
     dealer_up = data.get("dealer_up")
+    can_double = data.get("can_double", True)
+    if not isinstance(can_double, bool):
+        can_double = True
 
     if not isinstance(player, list) or len(player) == 0:
         return jsonify({"error": "player cards are required"}), 400
@@ -63,7 +66,7 @@ def jev_advice():
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         return jsonify({"error": str(exc)}), 400
 
-    return jsonify(get_jev_advice(player, dealer_up))
+    return jsonify(get_jev_advice(player, dealer_up, can_double))
 
 
 if __name__ == "__main__":

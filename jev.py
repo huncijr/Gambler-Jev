@@ -151,15 +151,20 @@ def build_message(choice, confidence, player_total, dealer_up, bust, basic):
     return msg
 
 
-def fallback_advice(player_cards, dealer_up, reason="Jev is offline"):
+def fallback_advice(player_cards, dealer_up, reason="Jev is offline", can_double=True):
     total, _ = hand_total(player_cards)
     bust = bust_chance(player_cards)
     basic = basic_strategy(player_cards, dealer_up)
+    if not can_double and basic == "double":
+        # Doubling not allowed at the table: hit, except soft 18 where
+        # standing is the standard "otherwise".
+        basic = "stand" if total == 18 else "hit"
     dealer_txt = format_card(dealer_up) if dealer_up else "?"
     return {
         "jev_available": False,
         "source": "fallback",
         "choice": basic,
+        "options": ["hit", "stand", "double"] if can_double else ["hit", "stand"],
         "probabilities": {},
         "percent": {},
         "confidence": 0.0,
@@ -173,14 +178,21 @@ def fallback_advice(player_cards, dealer_up, reason="Jev is offline"):
     }
 
 
-def get_jev_advice(player_cards, dealer_up):
-    """Ask Jev for the next move. Always returns a UI-ready dict."""
+def get_jev_advice(player_cards, dealer_up, can_double=True):
+    """Ask Jev for the next move. Always returns a UI-ready dict.
+
+    `can_double` mirrors the table rule (exactly 2 cards + enough balance).
+    When False, double is not offered to Jev at all, so it can never be
+    recommended as something the player cannot press.
+    """
     total, soft = hand_total(player_cards)
     bust = bust_chance(player_cards)
     basic = basic_strategy(player_cards, dealer_up)
+    if not can_double and basic == "double":
+        basic = "stand" if total == 18 else "hit"
 
     if not os.environ.get("TYPESAFE_API_KEY"):
-        return fallback_advice(player_cards, dealer_up, "Jev is offline (no API key)")
+        return fallback_advice(player_cards, dealer_up, "Jev is offline (no API key)", can_double)
 
     if not key_is_plausible(os.environ.get("TYPESAFE_API_KEY")):
         return fallback_advice(
@@ -188,8 +200,10 @@ def get_jev_advice(player_cards, dealer_up):
             dealer_up,
             "Jev is offline (API key looks like a placeholder — "
             "put your real key in .env and restart the server)",
+            can_double,
         )
 
+    options = ["hit", "stand", "double"] if can_double else ["hit", "stand"]
     player_txt = ", ".join(format_card(c) for c in player_cards)
     dealer_txt = format_card(dealer_up) if dealer_up else "unknown"
     state = {
@@ -199,21 +213,27 @@ def get_jev_advice(player_cards, dealer_up):
         "dealer_upcard": dealer_txt,
         "exact_bust_chance_if_hit": bust,
         "basic_strategy_says": basic,
-        "allowed_actions": ["hit", "stand", "double"],
+        "allowed_actions": options,
     }
+    criteria = {
+        "hit": "Take one more card. Good with low totals or when the hand must improve to beat a strong dealer card.",
+        "stand": "Take no more cards. Good with high totals or when the bust chance makes hitting too risky.",
+    }
+    if can_double:
+        criteria["double"] = (
+            "Double down (take exactly one more card). Only for strong totals "
+            "around 9-11 against a weak dealer card."
+        )
     questions = {
         "best_move": Choice(
             instructions=(
                 "What is the player's best next move in blackjack given "
                 "`player_hand` (`player_total`, soft means an ace counts as 11) "
                 "against the dealer's visible card `dealer_upcard`? "
+                "Pick only one of `allowed_actions`. "
                 "Consider `exact_bust_chance_if_hit`."
             ),
-            criteria={
-                "hit": "Take one more card. Good with low totals or when the hand must improve to beat a strong dealer card.",
-                "stand": "Take no more cards. Good with high totals or when the bust chance makes hitting too risky.",
-                "double": "Double down (take exactly one more card). Only for strong totals around 9-11 against a weak dealer card.",
-            },
+            criteria=criteria,
         ),
         "should_hit": Noul(
             instructions=(
@@ -245,12 +265,13 @@ def get_jev_advice(player_cards, dealer_up):
             )
         else:
             reason = f"Jev is offline ({name})"
-        return fallback_advice(player_cards, dealer_up, reason)
+        return fallback_advice(player_cards, dealer_up, reason, can_double)
 
     return {
         "jev_available": True,
         "source": "jev",
         "choice": choice,
+        "options": options,
         "probabilities": probs,
         "percent": percent,
         "confidence": confidence,

@@ -307,7 +307,7 @@
         }
 
         .btn-split {
-            border-bottom: 3px solid var(--neon-green);
+            display: none; /* Split is not implemented in the game engine */
         }
 
         .btn:disabled {
@@ -923,6 +923,10 @@
             color: var(--neon-green);
         }
 
+        .jev-row.jev-na {
+            opacity: 0.45;
+        }
+
         .jev-message {
             font-size: 13px;
             line-height: 1.4;
@@ -1034,14 +1038,35 @@
         }
 
         .quick-bet-input {
-            width: 90px;
+            width: 140px;
             background: rgba(0, 0, 0, 0.7);
             border: 1px solid var(--neon-blue);
             color: white;
-            border-radius: 15px;
-            padding: 6px 10px;
-            font-size: 13px;
+            border-radius: 18px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
             outline: none;
+            transition: all 0.2s ease;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .quick-bet-input:focus {
+            border-color: var(--neon-green);
+            box-shadow: 0 0 10px rgba(0, 255, 157, 0.5);
+        }
+
+        .quick-bet-input::placeholder {
+            color: #888;
+            font-weight: normal;
+        }
+
+        /* Hide the number spinner arrows, keep the numeric keyboard on mobile */
+        .quick-bet-input::-webkit-outer-spin-button,
+        .quick-bet-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
 
         .bet-hint {
@@ -2113,16 +2138,27 @@
             return ranks.filter((r) => total + minValue(r) > 21).length / ranks.length;
         }
 
-        function jevSetBars(percent) {
+        function jevSetBars(percent, options) {
             const map = { hit: ['jevBarHit', 'jevPctHit', 'jevRowHit'], stand: ['jevBarStand', 'jevPctStand', 'jevRowStand'], double: ['jevBarDouble', 'jevPctDouble', 'jevRowDouble'] };
+            const offered = (key) => !options || options.includes(key);
             let best = null;
             let bestVal = -1;
             for (const key of Object.keys(map)) {
-                const val = percent && typeof percent[key] === 'number' ? percent[key] : 0;
-                if (val > bestVal) { bestVal = val; best = key; }
+                const val = percent && offered(key) && typeof percent[key] === 'number' ? percent[key] : 0;
+                if (offered(key) && val > bestVal) { bestVal = val; best = key; }
             }
             for (const key of Object.keys(map)) {
                 const [barId, pctId, rowId] = map[key];
+                const row = document.getElementById(rowId);
+                if (!offered(key)) {
+                    // Not a legal move right now: never offer it, not even at 0%.
+                    document.getElementById(barId).style.width = '0%';
+                    document.getElementById(pctId).textContent = '—';
+                    row.classList.remove('jev-pick');
+                    row.classList.add('jev-na');
+                    continue;
+                }
+                row.classList.remove('jev-na');
                 const val = percent && typeof percent[key] === 'number' ? percent[key] : 0;
                 document.getElementById(barId).style.width = `${val}%`;
                 document.getElementById(pctId).textContent = percent ? `${val}%` : '–';
@@ -2162,7 +2198,8 @@
                 player: state.playerHand.map((c) => ({ suit: c.suit, value: c.value })),
                 dealer_up: { suit: state.dealerHand[0].suit, value: state.dealerHand[0].value },
                 bet: state.bet,
-                balance: state.balance
+                balance: state.balance,
+                can_double: state.playerHand.length === 2 && state.balance >= state.bet
             };
 
             const controller = new AbortController();
@@ -2184,7 +2221,7 @@
                     updateControls();
                     jevShow();
                     jevSetStatus(data.jev_available ? 'Table read. Your move.' : 'Jev is offline — math fallback.', false);
-                    jevSetBars(data.jev_available ? data.percent : null);
+                    jevSetBars(data.jev_available ? data.percent : null, data.options);
                     jevMessageElement.textContent = data.message;
                     const bustLine = `Exact bust chance if you hit: ${Math.round((data.bust_chance ?? 0) * 100)}% (computed, not AI).`;
                     jevMetaElement.textContent = data.jev_available
