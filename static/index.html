@@ -389,9 +389,28 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            margin: 15px auto 5px auto;
+            margin: 0;
             transition: all 0.3s ease;
             position: relative;
+        }
+
+        /* Bet row: reset button on the left, bet area centered */
+        .bet-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0 5px 0;
+        }
+
+        .bet-row-side {
+            justify-self: end;
+            min-width: 110px;
+            text-align: right;
+        }
+
+        .bet-row-side:empty {
+            visibility: hidden;
         }
 
         .bet-area.highlight {
@@ -1122,21 +1141,26 @@
             <div class="player-area">
                 <div class="message"></div>
                 <div class="quick-bet">
-                    <button class="quick-bet-btn quick-bet-reset" id="resetBetBtn" style="display:none;">Reset bet</button>
                     <span class="quick-bet-label">Bet:</span>
                     <button class="quick-bet-btn" data-bet="5">$5</button>
                     <button class="quick-bet-btn" data-bet="10">$10</button>
                     <button class="quick-bet-btn" data-bet="50">$50</button>
                     <button class="quick-bet-btn" data-bet="100">$100</button>
+                    <button class="quick-bet-btn quick-bet-max" id="maxBetBtn">MAX</button>
                     <input class="quick-bet-input" id="customBet" type="number" min="1" step="1" placeholder="Custom $">
                     <button class="quick-bet-btn" id="customBetAdd">Add</button>
-                    <button class="quick-bet-btn quick-bet-max" id="maxBetBtn">MAX</button>
                 </div>
                 <div class="bet-hint">Click a chip or a quick bet (or drag chips) — then press Deal Cards.</div>
-                <div class="bet-area">
+                <div class="bet-row">
+                    <div class="bet-row-side">
+                        <button class="quick-bet-btn quick-bet-reset" id="resetBetBtn" style="display:none;">Reset bet</button>
+                    </div>
+                    <div class="bet-area">
                     <div class="bet-chips"></div>
                     <div class="bet-amount">Bet: $0</div>
                     <button class="bet-button">Deal Cards</button>
+                    </div>
+                    <div class="bet-row-side"></div>
                 </div>
                 <div class="player-table-row">
                     <div class="hand player-hand">
