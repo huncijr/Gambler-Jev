@@ -12,6 +12,27 @@ from typesafe_sdk import Choice, Noul, TypeSafeClient
 
 MODEL = "jev-latest"
 REQUEST_TIMEOUT = 10.0
+# Display smoothing: Jev's calibrated probabilities are often exactly 0 for
+# hopeless moves (e.g. HIT on 19). Blend a small epsilon uniformly so every
+# offered move always shows a small chance. Raw probabilities are untouched.
+SMOOTH_EPSILON = 0.06
+
+
+def smooth_percent(probs):
+    """Epsilon-smoothed integer percentages that always sum to 100."""
+    keys = list(probs.keys())
+    n = len(keys)
+    if n == 0:
+        return {}
+    exact = {
+        k: (1 - SMOOTH_EPSILON) * float(probs[k]) * 100 + SMOOTH_EPSILON / n * 100
+        for k in keys
+    }
+    floored = {k: int(v) for k, v in exact.items()}
+    remainder = 100 - sum(floored.values())
+    for k in sorted(keys, key=lambda k: exact[k] - floored[k], reverse=True)[:remainder]:
+        floored[k] += 1
+    return floored
 
 
 def key_is_plausible(key):
@@ -252,7 +273,7 @@ def get_jev_advice(player_cards, dealer_up, can_double=True):
         best = answers["best_move"]
         hit_noul = answers["should_hit"].noul
         probs = {k: round(float(v), 4) for k, v in best.probabilities.items()}
-        percent = {k: round(float(v) * 100) for k, v in best.probabilities.items()}
+        percent = smooth_percent(best.probabilities)
         choice = best.choice
         confidence = round(float(best.confidence), 4)
     except Exception as exc:  # network, auth, rate limits -> honest fallback
