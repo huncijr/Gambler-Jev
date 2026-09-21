@@ -1037,6 +1037,33 @@
             transform: translateY(1px);
         }
 
+        .quick-bet-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .quick-bet-max {
+            border-color: #ffd54f;
+            color: #ffd54f;
+        }
+
+        .quick-bet-max:hover {
+            background: rgba(255, 213, 79, 0.2);
+            box-shadow: 0 0 10px rgba(255, 213, 79, 0.5);
+        }
+
+        .quick-bet-reset {
+            border-color: var(--neon-red);
+            color: #ff8fab;
+        }
+
+        .quick-bet-reset:hover {
+            background: rgba(255, 42, 109, 0.2);
+            box-shadow: 0 0 10px rgba(255, 42, 109, 0.5);
+        }
+
         .quick-bet-input {
             width: 140px;
             background: rgba(0, 0, 0, 0.7);
@@ -1093,6 +1120,7 @@
             <div class="player-area">
                 <div class="message"></div>
                 <div class="quick-bet">
+                    <button class="quick-bet-btn quick-bet-reset" id="resetBetBtn" style="display:none;">Reset bet</button>
                     <span class="quick-bet-label">Bet:</span>
                     <button class="quick-bet-btn" data-bet="5">$5</button>
                     <button class="quick-bet-btn" data-bet="10">$10</button>
@@ -1100,6 +1128,7 @@
                     <button class="quick-bet-btn" data-bet="100">$100</button>
                     <input class="quick-bet-input" id="customBet" type="number" min="1" step="1" placeholder="Custom $">
                     <button class="quick-bet-btn" id="customBetAdd">Add</button>
+                    <button class="quick-bet-btn quick-bet-max" id="maxBetBtn">MAX</button>
                 </div>
                 <div class="bet-hint">Click a chip or a quick bet (or drag chips) — then press Deal Cards.</div>
                 <div class="bet-area">
@@ -1498,11 +1527,43 @@
             if (!state.betPlaced) {
                 state.betPlaced = true;
                 newHandButton.textContent = 'Deal Cards';
-                
+
                 // Show the bet button when chips are placed with permanent breathing effect
                 betButton.style.display = 'block';
                 betButton.classList.add('button-breathe');
             }
+
+            updateBetButtons();
+        }
+
+        // Take the whole bet back: balance refunded, bet cleared.
+        function clearBet() {
+            if (state.gameInProgress || state.bet <= 0) return;
+
+            state.balance += state.bet;
+            state.bet = 0;
+            state.betPlaced = false;
+
+            clearBetArea();
+            updateBetDisplay();
+            updateBalanceDisplay();
+
+            // Hide the Deal Cards button until a new bet is placed
+            betButton.style.display = 'none';
+            betButton.classList.remove('button-breathe');
+
+            newHandButton.textContent = 'New Hand';
+            updateControls();
+        }
+
+        // Reset-bet is only visible while a bet is on the table;
+        // MAX is disabled while a hand is running or broke.
+        function updateBetButtons() {
+            const resetBtn = document.getElementById('resetBetBtn');
+            const maxBtn = document.getElementById('maxBetBtn');
+            if (!resetBtn || !maxBtn) return;
+            resetBtn.style.display = (state.bet > 0 && !state.gameInProgress) ? '' : 'none';
+            maxBtn.disabled = state.gameInProgress || state.balance <= 0;
         }
 
         // Add a visual chip to the bet area
@@ -1942,6 +2003,8 @@
                 newHandButton.textContent = 'New Hand';
             }
 
+            updateBetButtons();
+
             // Gambler Jev: lock actions while his advice is loading
             if (state.jevPending) {
                 hitButton.disabled = true;
@@ -2098,6 +2161,15 @@
             document.getElementById('customBetAdd').addEventListener('click', addCustomBet);
             customBetInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') addCustomBet();
+            });
+            document.getElementById('maxBetBtn').addEventListener('click', () => {
+                if (state.gameInProgress || state.balance <= 0) return;
+                placeBet(state.balance);
+                playSound('chip');
+            });
+            document.getElementById('resetBetBtn').addEventListener('click', () => {
+                clearBet();
+                playSound('chip');
             });
             chipElements.forEach((chip) => {
                 chip.addEventListener('click', () => {
