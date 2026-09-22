@@ -946,6 +946,18 @@
             opacity: 0.45;
         }
 
+        .jev-confidence {
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--neon-green);
+            text-shadow: 0 0 5px rgba(0, 255, 157, 0.4);
+        }
+
+        .jev-confidence:empty {
+            display: none;
+        }
+
         .jev-message {
             font-size: 13px;
             line-height: 1.4;
@@ -1192,6 +1204,7 @@
                                     <span id="jevPctDouble">–</span>
                                 </div>
                             </div>
+                            <div class="jev-confidence" id="jevConfidence"></div>
                             <div class="jev-message" id="jevMessage">Place your bet and I'll join you when it's your move.</div>
                             <div class="jev-meta" id="jevMeta"></div>
                         </div>
@@ -2139,6 +2152,7 @@
         const jevStatusElement = document.getElementById('jevStatus');
         const jevMessageElement = document.getElementById('jevMessage');
         const jevMetaElement = document.getElementById('jevMeta');
+        const jevConfidenceElement = document.getElementById('jevConfidence');
         let jevSeq = 0;
 
         // Jev slides in (right sidebar) only when it's your move.
@@ -2278,6 +2292,7 @@
             if (state.playerHand.length === 2 && playerTotal === 21) {
                 jevShow();
                 jevSetStatus('Blackjack! No advice needed.');
+                jevConfidenceElement.textContent = '';
                 jevMessageElement.textContent = 'Blackjack! Beautiful. Let the dealer play it out.';
                 jevSetBars(null);
                 jevMetaElement.textContent = '';
@@ -2320,6 +2335,9 @@
                     jevShow();
                     jevSetStatus(data.jev_available ? 'Table read. Your move.' : 'Jev is offline — math fallback.', false);
                     jevSetBars(data.jev_available ? data.percent : null, data.options);
+                    jevConfidenceElement.textContent = data.jev_available && typeof data.confidence === 'number'
+                        ? `Confidence: ${data.confidence}`
+                        : 'Confidence: –';
                     jevMessageElement.textContent = data.message;
                     const bustLine = `Exact bust chance if you hit: ${Math.round((data.bust_chance ?? 0) * 100)}% (computed, not AI).`;
                     jevMetaElement.textContent = data.jev_available
@@ -2331,6 +2349,7 @@
                     state.jevPending = false;
                     updateControls();
                     jevShow();
+                    jevConfidenceElement.textContent = 'Confidence: –';
                     jevSetStatus('Backend unreachable — math fallback.', false);
                     jevSetBars(null);
                     jevMessageElement.textContent = `I can't reach my brain right now. Math says: bust chance ${bustPct}% — ${bustPct > 50 ? 'leaning STAND.' : 'leaning HIT.'}`;
@@ -2356,6 +2375,7 @@
             state.jevPending = false;
             jevSetBars(null);
             jevSetStatus('Dealing…', true);
+            jevConfidenceElement.textContent = '';
             jevMessageElement.textContent = 'Cards are coming. I will join you when it is your move.';
             jevMetaElement.textContent = '';
         }
@@ -2365,6 +2385,7 @@
             state.jevPending = false;
             jevSetBars(null);
             jevSetStatus('Waiting for your turn…', false);
+            jevConfidenceElement.textContent = '';
             jevMessageElement.textContent = "Place your bet and I'll join you when it's your move.";
             jevMetaElement.textContent = '';
         }
